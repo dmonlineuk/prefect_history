@@ -1,33 +1,92 @@
-# pp_testing
+# Prefect History
 
-## Dependencies
+Cache and browse Prefect flow-run history locally using SQLite.
 
-uv is recommended, either system-wide or it needs installing in the activated environment.
+## Installation
 
-Follow the instructions at https://docs.astral.sh/uv/getting-started/installation if installing uv system-wide.
-
-### uv System-wide
+[uv](https://docs.astral.sh/uv/getting-started/installation) is recommended.
 
 ```shell
-git clone https://github.com/dmonlineuk/pp_testing
-cd pp_testing
+git clone https://github.com/dmonlineuk/prefect_history
+cd prefect_history
 uv venv
-. .venv/Scripts/activate # or . .venv/bin/activate on Linux/Mac
+. .venv/Scripts/activate    # Windows
+# or . .venv/bin/activate   # Linux / Mac
 uv sync
 ```
 
-### uv in Virtual Environment
+## Configuration
+
+Create a `.env` file in the project root:
+
+```env
+PREFECT_API_URL=https://api.prefect.cloud/api/accounts/<ACCOUNT-ID>/workspaces/<WORKSPACE-ID>
+PREFECT_API_KEY=pnu_...
+
+# Optional
+PH_DB_PATH=prefect_history.db
+PH_BACKFILL_MONTHS=2
+PH_PAGE_SIZE=200
+```
+
+## CLI Usage
+
+After installation, the `prefect-history` command is available:
 
 ```shell
-git clone https://github.com/dmonlineuk/pp_testing
-cd pp_testing
-python -m venv .venv
-. .venv/Scripts/Activate.ps1 # or . .venv/bin/activate on Linux/Mac
-python -m pip install uv
-uv sync
+prefect-history --help
 ```
 
-## Using the package
+### Sync Commands
+
+```shell
+# Initial backfill (default: last 2 months)
+prefect-history backfill
+prefect-history backfill -m 6          # 6-month backfill
+
+# Incremental sync (new runs + re-check in-flight)
+prefect-history sync
+
+# Cache statistics and recent sync log
+prefect-history status
+```
+
+### Browsing Flow Runs (CLI)
+
+```shell
+# List cached flow runs in a colour-coded table
+prefect-history list
+prefect-history list -n 50             # show 50 rows
+prefect-history list --state FAILED    # filter by state
+prefect-history list --flow etl-pipeline   # filter by flow name
+prefect-history list --offset 20       # pagination (skip first 20)
+```
+
+### Web Dashboard
+
+```shell
+# Launch the web UI at http://127.0.0.1:8000 (default)
+prefect-history serve
+
+# Custom host/port (e.g. expose on all interfaces, port 9000)
+prefect-history serve --host 0.0.0.0 --port 9000
+```
+
+The web dashboard provides:
+- Stats overview (total runs, in-flight, last sync time)
+- Filter dropdowns for state type and flow name
+- Paginated table with colour-coded state badges
+- Smooth navigation via HTMX partial updates
+
+### Global Options
+
+```shell
+prefect-history --env-file /path/to/.env list   # custom .env location
+prefect-history --db /path/to/cache.db list     # custom database path
+prefect-history -v sync                         # verbose/debug logging
+```
+
+## Python API
 
 ```python
 from prefect_history import load_settings, backfill, incremental
@@ -48,4 +107,3 @@ black .
 ruff check .
 pytest
 ```
-

@@ -6,9 +6,24 @@ import argparse
 import logging
 import sys
 
+from rich.console import Console
+from rich.table import Table
+
 from prefect_history.config import load_settings
 from prefect_history.db import FlowRunDB
 from prefect_history.sync import backfill, incremental
+
+_STATE_COLOURS: dict[str, str] = {
+    "COMPLETED": "green",
+    "RUNNING": "cyan",
+    "SCHEDULED": "blue",
+    "PENDING": "yellow",
+    "FAILED": "red",
+    "CRASHED": "bold red",
+    "CANCELLED": "magenta",
+    "CANCELLING": "magenta",
+    "PAUSED": "yellow",
+}
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -60,6 +75,52 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Show cache statistics and recent sync log.",
     )
 
+    # -- list -------------------------------------------------------
+    ls = sub.add_parser(
+        "list",
+        help="Display cached flow runs in a table.",
+    )
+    ls.add_argument(
+        "-n",
+        "--limit",
+        type=int,
+        default=20,
+        help="Number of rows to display (default: 20).",
+    )
+    ls.add_argument(
+        "--offset",
+        type=int,
+        default=0,
+        help="Row offset for pagination (default: 0).",
+    )
+    ls.add_argument(
+        "--state",
+        default=None,
+        help="Filter by state_type (e.g. COMPLETED, FAILED, RUNNING).",
+    )
+    ls.add_argument(
+        "--flow",
+        default=None,
+        help="Filter by flow name.",
+    )
+
+    # -- serve ------------------------------------------------------
+    sv = sub.add_parser(
+        "serve",
+        help="Launch the web UI for browsing cached flow runs.",
+    )
+    sv.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Host to bind to (default: 127.0.0.1).",
+    )
+    sv.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port to listen on (default: 8000).",
+    )
+
     return parser
 
 
@@ -89,6 +150,62 @@ def _cmd_status(settings_kwargs: dict) -> None:
             )
 
 
+def _cmd_list(
+    settings_kwargs: dict,
+    *,
+    limit: int,
+    offset: int,
+    state: str | None,
+    flow: str | None,
+) -> None:
+    settings = load_settings(**settings_kwargs)
+    db = FlowRunDB(settings.db_path)
+
+    total = db.count_flow_runs(state_type=state)
+    rows = db.get_all_flow_runs(
+        state_type=state,
+        flow_name=flow,
+        limit=limit,
+        offset=offset,
+    )
+
+    console = Console()
+    table = Table(
+        title=f"Flow Runs ({offset + 1}-{offset + len(rows)} of {total})",
+        show_lines=True,
+    )
+    table.add_column("Name", style="bold")
+    table.add_column("Flow")
+    table.add_column("State", justify="center")
+    table.add_column("Start Time")
+    table.add_column("Duration (s)", justify="right")
+    table.add_column("Run #", justify="right")
+    table.add_column("Tags")
+
+    for row in rows:
+        st = row.get("state_type") or ""
+        colour = _STATE_COLOURS.get(st, "white")
+        state_display = f"[{colour}]{row.get('state_name', st)}[/{colour}]"
+
+        duration = row.get("total_run_time_s")
+        dur_str = f"{duration:.1f}" if duration is not None else ""
+
+        table.add_row(
+            row.get("name", ""),
+            row.get("flow_name", ""),
+            state_display,
+            (row.get("start_time") or "")[:19],
+            dur_str,
+            str(row.get("run_count", "")),
+            row.get("tags", "[]"),
+        )
+
+    console.print(table)
+
+    if offset + limit < total:
+        console.print(f"  [dim]Next page: --offset {offset + limit}[/dim]")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -115,6 +232,23 @@ def main(argv: list[str] | None = None) -> None:
 
     elif args.command == "status":
         _cmd_status(settings_kwargs)
+
+    elif args.command == "list":
+        _cmd_list(
+            settings_kwargs,
+            limit=args.limit,
+            offset=args.offset,
+            state=args.state,
+            flow=args.flow,
+        )
+
+    elif args.command == "serve":
+        from prefect_history.web import create_app
+
+        app = create_app(settings_kwargs)
+        import uvicorn
+
+        uvicorn.run(app, host=args.host, port=args.port)
 
     else:
         parser.print_help()
