@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pp-testing"
+name = "prefect-history"
 version = "0.1.0"
-description = "Add your description here"
+description = "Cache and browse Prefect flow-run history locally using SQLite."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
