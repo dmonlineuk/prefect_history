@@ -65,8 +65,10 @@ prefect-history list --offset 20       # pagination (skip first 20)
 ### Web Dashboard
 
 ```shell
-# Launch the web UI (default: http://127.0.0.1:8000)
+# Launch the web UI at http://127.0.0.1:8000 (default)
 prefect-history serve
+
+# Custom host/port (e.g. expose on all interfaces, port 9000)
 prefect-history serve --host 0.0.0.0 --port 9000
 ```
 
