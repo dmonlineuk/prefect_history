@@ -19,6 +19,7 @@ dev = [
     "ruff",
     "isort",
     "pytest",
+    "pytest-asyncio>=1.4.0",
 ]
 publish = [
     "build",
@@ -51,3 +52,4 @@ line-ending = "auto"
 
 [tool.setuptools.packages.find]
 where = ["."]
+
