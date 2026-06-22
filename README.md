@@ -2,7 +2,7 @@
 
 ## Dependencies
 
-uv is recommended, either systemwide or it needs installing in the activated environment.
+uv is recommended, either system-wide or it needs installing in the activated environment.
 
 Follow the instructions at https://docs.astral.sh/uv/getting-started/installation if installing uv system-wide.
 
@@ -22,16 +22,18 @@ uv sync
 git clone https://github.com/dmonlineuk/pp_testing
 cd pp_testing
 python -m venv .venv
-. .venv/Scripts/activate # or . .venv/bin/activate on Linux/Mac
+. .venv/Scripts/Activate.ps1 # or . .venv/bin/activate on Linux/Mac
 python -m pip install uv
 uv sync
 ```
 
-## Getting Started
+## Using the package
 
-
+ TBC
 
 ## Contributions
+
+Please use linter, formatter, and run pytest before committing.
 
 ```shell
 uv sync --extra dev
@@ -40,3 +42,4 @@ black .
 ruff check .
 pytest
 ```
+
