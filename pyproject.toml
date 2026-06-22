@@ -31,6 +31,9 @@ publish = [
     "twine",
 ]
 
+[project.scripts]
+prefect-history = "prefect_history.__main__:main"
+
 [tool.black]
 line-length = 88
 target-version = ["py312"]
