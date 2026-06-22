@@ -11,6 +11,10 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "prefect>=3.7.5",
     "python-dotenv>=1.0.1",
+    "rich>=13.7.0",
+    "fastapi>=0.111.0",
+    "uvicorn>=0.29.0",
+    "jinja2>=3.1.3",
 ]
 
 [project.optional-dependencies]
@@ -20,6 +24,7 @@ dev = [
     "isort",
     "pytest",
     "pytest-asyncio>=1.4.0",
+    "httpx>=0.27.0",
 ]
 publish = [
     "build",
@@ -52,4 +57,7 @@ line-ending = "auto"
 
 [tool.setuptools.packages.find]
 where = ["."]
+
+[tool.setuptools.package-data]
+prefect_history = ["templates/*.html"]
 
