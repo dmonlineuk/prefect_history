@@ -29,7 +29,13 @@ uv sync
 
 ## Using the package
 
- TBC
+```python
+from prefect_history import load_settings, backfill, incremental
+
+settings = load_settings()       # reads .env
+backfill(settings)               # initial 2-month pull
+incremental(settings)            # daily delta + in-flight re-check
+```
 
 ## Contributions
 
