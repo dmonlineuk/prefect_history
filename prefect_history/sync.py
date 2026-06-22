@@ -64,8 +64,6 @@ def backfill(settings: Settings, *, months: int | None = None) -> int:
     try:
         rows = _run_async(
             fetch_flow_runs_since(
-                api_url=settings.prefect_api_url,
-                api_key=settings.prefect_api_key,
                 since=since,
                 page_size=settings.page_size,
             )
@@ -103,8 +101,6 @@ def incremental(settings: Settings) -> int:
         # 1) Fetch new runs since last sync
         new_rows = _run_async(
             fetch_flow_runs_since(
-                api_url=settings.prefect_api_url,
-                api_key=settings.prefect_api_key,
                 since=last_sync,
                 page_size=settings.page_size,
             )
@@ -120,8 +116,6 @@ def incremental(settings: Settings) -> int:
             )
             refreshed_rows = _run_async(
                 fetch_flow_runs_by_ids(
-                    api_url=settings.prefect_api_url,
-                    api_key=settings.prefect_api_key,
                     run_ids=in_flight_ids,
                     page_size=settings.page_size,
                 )
