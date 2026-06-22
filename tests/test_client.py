@@ -145,8 +145,6 @@ class TestFetchFlowRunsSince:
 
         with patch("prefect_history.client.get_client", return_value=mock_client):
             rows = await fetch_flow_runs_since(
-                api_url="https://test.com",
-                api_key="key",
                 since=datetime.now(UTC) - timedelta(days=60),
                 page_size=50,
             )
@@ -172,8 +170,6 @@ class TestFetchFlowRunsSince:
 
         with patch("prefect_history.client.get_client", return_value=mock_client):
             rows = await fetch_flow_runs_since(
-                api_url="https://test.com",
-                api_key="key",
                 since=datetime.now(UTC) - timedelta(days=60),
                 page_size=2,
             )
@@ -189,8 +185,6 @@ class TestFetchFlowRunsSince:
 
         with patch("prefect_history.client.get_client", return_value=mock_client):
             rows = await fetch_flow_runs_since(
-                api_url="https://test.com",
-                api_key="key",
                 since=datetime.now(UTC),
             )
 
@@ -216,8 +210,6 @@ class TestFetchFlowRunsByIds:
 
         with patch("prefect_history.client.get_client", return_value=mock_client):
             rows = await fetch_flow_runs_by_ids(
-                api_url="https://test.com",
-                api_key="key",
                 run_ids=[str(rid)],
             )
 
@@ -228,8 +220,6 @@ class TestFetchFlowRunsByIds:
     @pytest.mark.asyncio
     async def test_empty_ids_returns_empty(self):
         rows = await fetch_flow_runs_by_ids(
-            api_url="https://test.com",
-            api_key="key",
             run_ids=[],
         )
         assert rows == []

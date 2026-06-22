@@ -99,23 +99,20 @@ async def _resolve_flow_names(
 
 async def fetch_flow_runs_since(
     *,
-    api_url: str,
-    api_key: str,
     since: datetime,
     page_size: int = 200,
 ) -> list[dict]:
     """Fetch all flow runs whose ``expected_start_time >= since``.
 
     Handles pagination automatically and resolves flow names.
+    The Prefect client reads ``PREFECT_API_URL`` and ``PREFECT_API_KEY``
+    from environment variables (set by ``load_settings``).
     Returns a list of row dicts ready for ``FlowRunDB.upsert_flow_runs``.
     """
     rows: list[dict] = []
     flow_name_cache: dict[str, str] = {}
 
-    async with get_client(
-        api_url=api_url,
-        api_key=api_key,
-    ) as client:
+    async with get_client() as client:
         offset = 0
         while True:
             batch = await client.read_flow_runs(
@@ -150,13 +147,13 @@ async def fetch_flow_runs_since(
 
 async def fetch_flow_runs_by_ids(
     *,
-    api_url: str,
-    api_key: str,
     run_ids: list[str],
     page_size: int = 200,
 ) -> list[dict]:
     """Re-fetch specific flow runs by their IDs (for in-flight re-checks).
 
+    The Prefect client reads ``PREFECT_API_URL`` and ``PREFECT_API_KEY``
+    from environment variables (set by ``load_settings``).
     Returns a list of row dicts ready for ``FlowRunDB.upsert_flow_runs``.
     """
     if not run_ids:
@@ -165,10 +162,7 @@ async def fetch_flow_runs_by_ids(
     rows: list[dict] = []
     flow_name_cache: dict[str, str] = {}
 
-    async with get_client(
-        api_url=api_url,
-        api_key=api_key,
-    ) as client:
+    async with get_client() as client:
         # Process in chunks to avoid huge single requests
         for i in range(0, len(run_ids), page_size):
             chunk = run_ids[i : i + page_size]

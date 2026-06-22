@@ -65,6 +65,13 @@ def load_settings(
             "Add it to your .env file or export it as an environment variable."
         )
 
+    # Ensure the env vars are set so Prefect's get_client() picks them up.
+    # load_dotenv(override=False) only writes to os.environ if the key is
+    # missing, but if the user constructed Settings directly we still need
+    # these exported for the Prefect SDK.
+    os.environ.setdefault("PREFECT_API_URL", api_url)
+    os.environ.setdefault("PREFECT_API_KEY", api_key)
+
     return Settings(
         prefect_api_url=api_url,
         prefect_api_key=api_key,
