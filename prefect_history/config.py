@@ -9,7 +9,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 
 _DEFAULT_DB_PATH = "prefect_history.db"
 _DEFAULT_BACKFILL_MONTHS = 2
@@ -49,6 +49,13 @@ def load_settings(
         Override for the Prefect API pagination size.
     """
     if env_file is not None:
+        # If the caller passed a bare filename (e.g. ".env"), search upward
+        # from the working directory so the CLI works from any subfolder.
+        env_path = Path(env_file)
+        if not env_path.is_absolute() and not env_path.exists():
+            found = find_dotenv(filename=str(env_file), usecwd=True)
+            if found:
+                env_file = found
         load_dotenv(env_file, override=False)
 
     api_url = os.getenv("PREFECT_API_URL", "")

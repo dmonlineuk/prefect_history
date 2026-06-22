@@ -80,3 +80,20 @@ class TestLoadSettings:
         s = load_settings(env_file=str(env_file))
         assert s.prefect_api_url == "https://from-file.com"
         assert s.prefect_api_key == "pnu_from_file"
+
+    def test_finds_dotenv_from_subdirectory(self, tmp_path, monkeypatch):
+        """Running from a subfolder should still find .env in a parent."""
+        monkeypatch.delenv("PREFECT_API_URL", raising=False)
+        monkeypatch.delenv("PREFECT_API_KEY", raising=False)
+
+        env_file = tmp_path / ".env"
+        env_file.write_text(
+            "PREFECT_API_URL=https://parent-dir.com\n" "PREFECT_API_KEY=pnu_parent\n"
+        )
+        subdir = tmp_path / "some" / "nested" / "dir"
+        subdir.mkdir(parents=True)
+
+        monkeypatch.chdir(subdir)
+        s = load_settings(env_file=".env")
+        assert s.prefect_api_url == "https://parent-dir.com"
+        assert s.prefect_api_key == "pnu_parent"
