@@ -115,6 +115,30 @@ def create_app(settings_kwargs: dict[str, Any] | None = None) -> FastAPI:
             },
         )
 
+    @app.get("/summary", response_class=HTMLResponse)
+    async def summary_page(
+        request: Request,
+        since: str | None = Query(None),
+        flow: str | None = Query(None),
+    ) -> HTMLResponse:
+        db = _get_db(app)
+        rows = db.get_flow_summary(since=since)
+        if flow:
+            rows = [r for r in rows if r["flow_name"] == flow]
+
+        filters = _get_distinct_values(db)
+
+        return templates.TemplateResponse(
+            request,
+            "summary.html",
+            {
+                "rows": rows,
+                "flows": filters["flows"],
+                "flow_filter": flow or "",
+                "since_filter": since or "",
+            },
+        )
+
     @app.get("/rows", response_class=HTMLResponse)
     async def rows_fragment(
         request: Request,

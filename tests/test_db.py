@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import pytest
+
 from prefect_history.db import FlowRunDB
 from tests.conftest import make_flow_run_row
 
@@ -189,3 +191,110 @@ class TestSyncLog:
         log = tmp_db.get_sync_log(limit=3)
         assert len(log) == 3
         assert log[0]["id"] > log[1]["id"] > log[2]["id"]
+
+
+class TestGetFlowSummary:
+    def test_empty_db(self, tmp_db):
+        assert tmp_db.get_flow_summary() == []
+
+    def test_single_flow(self, tmp_db):
+        tmp_db.upsert_flow_runs(
+            [
+                make_flow_run_row(run_id="s1", flow_name="etl", state_type="COMPLETED"),
+                make_flow_run_row(run_id="s2", flow_name="etl", state_type="COMPLETED"),
+                make_flow_run_row(run_id="s3", flow_name="etl", state_type="FAILED"),
+            ]
+        )
+        summary = tmp_db.get_flow_summary()
+        assert len(summary) == 1
+        row = summary[0]
+        assert row["flow_name"] == "etl"
+        assert row["total_runs"] == 3
+        assert row["completed"] == 2
+        assert row["failed"] == 1
+        assert row["crashed"] == 0
+        assert row["success_rate"] == pytest.approx(66.7, abs=0.1)
+
+    def test_multiple_flows_ordered_by_total(self, tmp_db):
+        tmp_db.upsert_flow_runs(
+            [
+                make_flow_run_row(
+                    run_id="a1", flow_name="alpha", state_type="COMPLETED"
+                ),
+                make_flow_run_row(
+                    run_id="b1", flow_name="beta", state_type="COMPLETED"
+                ),
+                make_flow_run_row(
+                    run_id="b2", flow_name="beta", state_type="COMPLETED"
+                ),
+                make_flow_run_row(run_id="b3", flow_name="beta", state_type="CRASHED"),
+            ]
+        )
+        summary = tmp_db.get_flow_summary()
+        assert len(summary) == 2
+        assert summary[0]["flow_name"] == "beta"
+        assert summary[0]["total_runs"] == 3
+        assert summary[1]["flow_name"] == "alpha"
+        assert summary[1]["total_runs"] == 1
+
+    def test_since_filter(self, tmp_db):
+        tmp_db.upsert_flow_runs(
+            [
+                make_flow_run_row(
+                    run_id="old",
+                    flow_name="etl",
+                    state_type="COMPLETED",
+                    start_time="2025-01-01T00:00:00",
+                ),
+                make_flow_run_row(
+                    run_id="new",
+                    flow_name="etl",
+                    state_type="FAILED",
+                    start_time="2026-06-01T00:00:00",
+                ),
+            ]
+        )
+        summary = tmp_db.get_flow_summary(since="2026-01-01T00:00:00")
+        assert len(summary) == 1
+        assert summary[0]["total_runs"] == 1
+        assert summary[0]["failed"] == 1
+
+    def test_duration_stats(self, tmp_db):
+        rows = [
+            make_flow_run_row(run_id="d1", flow_name="etl", state_type="COMPLETED"),
+            make_flow_run_row(run_id="d2", flow_name="etl", state_type="COMPLETED"),
+        ]
+        rows[0]["total_run_time_s"] = 10.0
+        rows[1]["total_run_time_s"] = 30.0
+        tmp_db.upsert_flow_runs(rows)
+
+        summary = tmp_db.get_flow_summary()
+        row = summary[0]
+        assert row["avg_duration_s"] == 20.0
+        assert row["min_duration_s"] == 10.0
+        assert row["max_duration_s"] == 30.0
+
+    def test_in_flight_count(self, tmp_db):
+        tmp_db.upsert_flow_runs(
+            [
+                make_flow_run_row(run_id="r1", flow_name="etl", state_type="RUNNING"),
+                make_flow_run_row(run_id="r2", flow_name="etl", state_type="PENDING"),
+                make_flow_run_row(run_id="r3", flow_name="etl", state_type="COMPLETED"),
+            ]
+        )
+        summary = tmp_db.get_flow_summary()
+        assert summary[0]["in_flight"] == 2
+
+    def test_success_rate_all_completed(self, tmp_db):
+        tmp_db.upsert_flow_runs(
+            [
+                make_flow_run_row(
+                    run_id="c1", flow_name="perfect", state_type="COMPLETED"
+                ),
+                make_flow_run_row(
+                    run_id="c2", flow_name="perfect", state_type="COMPLETED"
+                ),
+            ]
+        )
+        summary = tmp_db.get_flow_summary()
+        assert summary[0]["success_rate"] == 100.0

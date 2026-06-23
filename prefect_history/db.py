@@ -238,3 +238,55 @@ class FlowRunDB:
         sql = "SELECT * FROM sync_log ORDER BY id DESC LIMIT ?"
         with self._connect() as conn:
             return [dict(row) for row in conn.execute(sql, (limit,))]
+
+    # ------------------------------------------------------------------
+    # Summary / aggregation
+    # ------------------------------------------------------------------
+
+    def get_flow_summary(self, *, since: str | None = None) -> list[dict]:
+        """Per-flow aggregation with run counts, state breakdown, and duration stats.
+
+        Parameters
+        ----------
+        since:
+            ISO-format datetime string. If provided, only runs with
+            ``start_time >= since`` are included.
+
+        Returns a list of dicts sorted by total runs descending.
+        """
+        where = "WHERE start_time >= ?" if since else ""
+        params: tuple = (since,) if since else ()
+
+        sql = f"""
+            SELECT
+                flow_name,
+                COUNT(*)                                       AS total_runs,
+                SUM(CASE WHEN state_type = 'COMPLETED' THEN 1 ELSE 0 END) AS completed,
+                SUM(CASE WHEN state_type = 'FAILED' THEN 1 ELSE 0 END)    AS failed,
+                SUM(CASE WHEN state_type = 'CRASHED' THEN 1 ELSE 0 END)   AS crashed,
+                SUM(CASE WHEN state_type = 'CANCELLED' THEN 1 ELSE 0 END) AS cancelled,
+                SUM(CASE WHEN state_type IN (
+                    'RUNNING','PENDING','SCHEDULED','CANCELLING','PAUSED'
+                ) THEN 1 ELSE 0 END)                   AS in_flight,
+                ROUND(AVG(total_run_time_s), 1)                AS avg_duration_s,
+                ROUND(MIN(total_run_time_s), 1)                AS min_duration_s,
+                ROUND(MAX(total_run_time_s), 1)                AS max_duration_s,
+                MAX(start_time)                                AS last_run,
+                SUM(CASE WHEN start_time >= datetime('now', '-1 day')
+                    THEN 1 ELSE 0 END)                         AS runs_24h,
+                SUM(CASE WHEN start_time >= datetime('now', '-7 days')
+                    THEN 1 ELSE 0 END)                         AS runs_7d
+            FROM flow_runs
+            {where}
+            GROUP BY flow_name
+            ORDER BY total_runs DESC
+        """
+        with self._connect() as conn:
+            rows = [dict(row) for row in conn.execute(sql, params)]
+
+        for row in rows:
+            total = row["total_runs"]
+            completed = row["completed"]
+            row["success_rate"] = round(completed / total * 100, 1) if total else 0.0
+
+        return rows
