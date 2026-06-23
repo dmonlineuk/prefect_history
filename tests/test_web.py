@@ -25,6 +25,10 @@ def seeded_app(tmp_path, monkeypatch):
             flow_name="etl-pipeline",
             state_type="COMPLETED" if i % 3 != 0 else "FAILED",
             state_name="Completed" if i % 3 != 0 else "Failed",
+            deployment_name="daily-etl",
+            entrypoint="flows/etl.py:run",
+            work_pool_type="kubernetes",
+            parameters='{"batch_size": 100}',
         )
         for i in range(25)
     ]
@@ -73,6 +77,15 @@ class TestIndexPage:
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
             resp = await ac.get("/")
         assert "etl-pipeline" in resp.text
+
+    @pytest.mark.asyncio
+    async def test_index_shows_deployment_and_entrypoint(self, seeded_app):
+        transport = ASGITransport(app=seeded_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            resp = await ac.get("/")
+        assert "daily-etl" in resp.text
+        assert "flows/etl.py:run" in resp.text
+        assert "kubernetes" in resp.text
 
     @pytest.mark.asyncio
     async def test_empty_db(self, empty_app):
