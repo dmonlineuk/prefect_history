@@ -4,13 +4,13 @@
             <tr>
                 <th>Name</th>
                 <th>Flow</th>
+                <th>Deployment</th>
+                <th>Entrypoint</th>
                 <th>State</th>
+                <th>Pool Type</th>
                 <th>Start Time</th>
-                <th>End Time</th>
                 <th>Duration</th>
-                <th>Run #</th>
-                <th>Tags</th>
-                <th>Work Pool</th>
+                <th>Parameters</th>
             </tr>
         </thead>
         <tbody>
@@ -18,21 +18,21 @@
             <tr>
                 <td><strong>{{ row.get("name", "") }}</strong></td>
                 <td>{{ row.get("flow_name", "") }}</td>
+                <td>{{ row.get("deployment_name", "") or "" }}</td>
+                <td><code>{{ row.get("entrypoint", "") or "" }}</code></td>
                 <td>
                     {% set st = row.get("state_type", "") %}
                     <span class="state-badge" style="background:{{ state_colours.get(st, '#64748b') }}">
                         {{ row.get("state_name", st) }}
                     </span>
                 </td>
+                <td>{{ row.get("work_pool_type", "") or "" }}</td>
                 <td>{{ (row.get("start_time") or "")[:19] }}</td>
-                <td>{{ (row.get("end_time") or "")[:19] }}</td>
                 <td>
                     {% set dur = row.get("total_run_time_s") %}
                     {% if dur is not none %}{{ "%.1f"|format(dur) }}s{% endif %}
                 </td>
-                <td>{{ row.get("run_count", "") }}</td>
-                <td>{{ row.get("tags", "[]") }}</td>
-                <td>{{ row.get("work_pool_name", "") or "" }}</td>
+                <td><code style="font-size:0.7rem">{{ row.get("parameters", "{}") }}</code></td>
             </tr>
             {% endfor %}
             {% if not rows %}

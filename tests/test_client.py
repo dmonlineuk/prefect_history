@@ -14,7 +14,9 @@ from prefect_history.client import (
     NON_TERMINAL_STATES,
     TERMINAL_STATES,
     _dt_iso,
+    _resolve_deployments,
     _resolve_flow_names,
+    _resolve_work_pool_types,
     fetch_flow_runs_by_ids,
     fetch_flow_runs_since,
     flow_run_to_row,
@@ -107,6 +109,35 @@ class TestFlowRunToRow:
         row = flow_run_to_row(run, flow_name=None)
         assert row["flow_name"] == ""
 
+    def test_deployment_info_captured(self):
+        run = _make_mock_flow_run()
+        dep_info = {"name": "daily-etl", "entrypoint": "flows/etl.py:run"}
+        row = flow_run_to_row(run, deployment_info=dep_info)
+        assert row["deployment_name"] == "daily-etl"
+        assert row["entrypoint"] == "flows/etl.py:run"
+
+    def test_work_pool_type_captured(self):
+        run = _make_mock_flow_run()
+        row = flow_run_to_row(run, work_pool_type="kubernetes")
+        assert row["work_pool_type"] == "kubernetes"
+
+    def test_created_by_fields(self):
+        run = _make_mock_flow_run()
+        cb = MagicMock()
+        cb.type = "DEPLOYMENT"
+        cb.id = uuid4()
+        cb.display_value = "daily-etl"
+        run.created_by = cb
+        row = flow_run_to_row(run)
+        assert row["created_by_type"] == "DEPLOYMENT"
+        assert row["created_by_display"] == "daily-etl"
+
+    def test_infrastructure_pid_captured(self):
+        run = _make_mock_flow_run()
+        run.infrastructure_pid = "k8s-pod-abc123"
+        row = flow_run_to_row(run)
+        assert row["infrastructure_pid"] == "k8s-pod-abc123"
+
 
 class TestStateConstants:
     def test_terminal_states(self):
@@ -140,6 +171,8 @@ class TestFetchFlowRunsSince:
         mock_client = AsyncMock()
         mock_client.read_flow_runs = AsyncMock(side_effect=[runs, []])
         mock_client.read_flows = AsyncMock(return_value=[mock_flow])
+        mock_client.read_deployment = AsyncMock(side_effect=Exception("no dep"))
+        mock_client.read_work_pool = AsyncMock(side_effect=Exception("no pool"))
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
@@ -165,6 +198,8 @@ class TestFetchFlowRunsSince:
         mock_client = AsyncMock()
         mock_client.read_flow_runs = AsyncMock(side_effect=[page1, page2, []])
         mock_client.read_flows = AsyncMock(return_value=[mock_flow])
+        mock_client.read_deployment = AsyncMock(side_effect=Exception("no dep"))
+        mock_client.read_work_pool = AsyncMock(side_effect=Exception("no pool"))
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
@@ -205,6 +240,8 @@ class TestFetchFlowRunsByIds:
         mock_client = AsyncMock()
         mock_client.read_flow_runs = AsyncMock(return_value=[run])
         mock_client.read_flows = AsyncMock(return_value=[mock_flow])
+        mock_client.read_deployment = AsyncMock(side_effect=Exception("no dep"))
+        mock_client.read_work_pool = AsyncMock(side_effect=Exception("no pool"))
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
@@ -250,3 +287,61 @@ class TestResolveFlowNames:
         mock_client = AsyncMock()
         result = await _resolve_flow_names(mock_client, set())
         assert result == {}
+
+
+class TestResolveDeployments:
+    @pytest.mark.asyncio
+    async def test_resolves_deployment(self):
+        dep_id = uuid4()
+        mock_dep = MagicMock()
+        mock_dep.name = "daily-etl"
+        mock_dep.entrypoint = "flows/etl.py:run"
+
+        mock_client = AsyncMock()
+        mock_client.read_deployment = AsyncMock(return_value=mock_dep)
+
+        result = await _resolve_deployments(mock_client, {str(dep_id)})
+        assert result[str(dep_id)]["name"] == "daily-etl"
+        assert result[str(dep_id)]["entrypoint"] == "flows/etl.py:run"
+
+    @pytest.mark.asyncio
+    async def test_empty_set_returns_empty(self):
+        mock_client = AsyncMock()
+        result = await _resolve_deployments(mock_client, set())
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_handles_error_gracefully(self):
+        dep_id = uuid4()
+        mock_client = AsyncMock()
+        mock_client.read_deployment = AsyncMock(side_effect=Exception("not found"))
+
+        result = await _resolve_deployments(mock_client, {str(dep_id)})
+        assert result[str(dep_id)] == {"name": None, "entrypoint": None}
+
+
+class TestResolveWorkPoolTypes:
+    @pytest.mark.asyncio
+    async def test_resolves_pool_type(self):
+        mock_pool = MagicMock()
+        mock_pool.type = "kubernetes"
+
+        mock_client = AsyncMock()
+        mock_client.read_work_pool = AsyncMock(return_value=mock_pool)
+
+        result = await _resolve_work_pool_types(mock_client, {"my-k8s-pool"})
+        assert result["my-k8s-pool"] == "kubernetes"
+
+    @pytest.mark.asyncio
+    async def test_empty_set_returns_empty(self):
+        mock_client = AsyncMock()
+        result = await _resolve_work_pool_types(mock_client, set())
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_handles_error_gracefully(self):
+        mock_client = AsyncMock()
+        mock_client.read_work_pool = AsyncMock(side_effect=Exception("not found"))
+
+        result = await _resolve_work_pool_types(mock_client, {"missing-pool"})
+        assert result["missing-pool"] == ""

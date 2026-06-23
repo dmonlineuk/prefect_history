@@ -192,11 +192,12 @@ def _cmd_list(
     )
     table.add_column("Name", style="bold")
     table.add_column("Flow")
+    table.add_column("Deployment")
+    table.add_column("Entrypoint")
     table.add_column("State", justify="center")
+    table.add_column("Pool Type")
     table.add_column("Start Time")
     table.add_column("Duration (s)", justify="right")
-    table.add_column("Run #", justify="right")
-    table.add_column("Tags")
 
     for row in rows:
         st = row.get("state_type") or ""
@@ -209,11 +210,12 @@ def _cmd_list(
         table.add_row(
             row.get("name", ""),
             row.get("flow_name", ""),
+            row.get("deployment_name", "") or "",
+            row.get("entrypoint", "") or "",
             state_display,
+            row.get("work_pool_type", "") or "",
             (row.get("start_time") or "")[:19],
             dur_str,
-            str(row.get("run_count", "")),
-            row.get("tags", "[]"),
         )
 
     console.print(table)

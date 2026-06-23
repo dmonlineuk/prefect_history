@@ -14,9 +14,16 @@ CREATE TABLE IF NOT EXISTS flow_runs (
     flow_name           TEXT,
     name                TEXT NOT NULL,
     deployment_id       TEXT,
+    deployment_name     TEXT,
     deployment_version  TEXT,
+    entrypoint          TEXT,          -- e.g. flows/etl.py:my_flow
     work_pool_name      TEXT,
+    work_pool_type      TEXT,          -- e.g. kubernetes, process, docker
     work_queue_name     TEXT,
+    infrastructure_pid  TEXT,          -- K8s pod / Docker container / process ID
+    created_by_type     TEXT,          -- DEPLOYMENT, UI, API, AUTOMATION
+    created_by_id       TEXT,
+    created_by_display  TEXT,
     state_type          TEXT,
     state_name          TEXT,
     state_message       TEXT,
@@ -55,8 +62,10 @@ CREATE TABLE IF NOT EXISTS sync_log (
 _UPSERT_SQL = """\
 INSERT INTO flow_runs (
     id, flow_id, flow_name, name,
-    deployment_id, deployment_version,
-    work_pool_name, work_queue_name,
+    deployment_id, deployment_name, deployment_version, entrypoint,
+    work_pool_name, work_pool_type, work_queue_name,
+    infrastructure_pid,
+    created_by_type, created_by_id, created_by_display,
     state_type, state_name, state_message,
     start_time, end_time, expected_start_time,
     total_run_time_s, created, updated,
@@ -64,8 +73,10 @@ INSERT INTO flow_runs (
     auto_scheduled, run_count
 ) VALUES (
     :id, :flow_id, :flow_name, :name,
-    :deployment_id, :deployment_version,
-    :work_pool_name, :work_queue_name,
+    :deployment_id, :deployment_name, :deployment_version, :entrypoint,
+    :work_pool_name, :work_pool_type, :work_queue_name,
+    :infrastructure_pid,
+    :created_by_type, :created_by_id, :created_by_display,
     :state_type, :state_name, :state_message,
     :start_time, :end_time, :expected_start_time,
     :total_run_time_s, :created, :updated,
@@ -77,9 +88,16 @@ ON CONFLICT(id) DO UPDATE SET
     flow_name          = excluded.flow_name,
     name               = excluded.name,
     deployment_id      = excluded.deployment_id,
+    deployment_name    = excluded.deployment_name,
     deployment_version = excluded.deployment_version,
+    entrypoint         = excluded.entrypoint,
     work_pool_name     = excluded.work_pool_name,
+    work_pool_type     = excluded.work_pool_type,
     work_queue_name    = excluded.work_queue_name,
+    infrastructure_pid = excluded.infrastructure_pid,
+    created_by_type    = excluded.created_by_type,
+    created_by_id      = excluded.created_by_id,
+    created_by_display = excluded.created_by_display,
     state_type         = excluded.state_type,
     state_name         = excluded.state_name,
     state_message      = excluded.state_message,
