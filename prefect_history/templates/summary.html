@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Flow Summary - Prefect History</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --border: #334155;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --accent: #3b82f6;
+            --green: #22c55e;
+            --yellow: #eab308;
+            --red: #ef4444;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+            padding: 1.5rem;
+        }
+        h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+        .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 1.5rem; }
+
+        /* Navigation */
+        .nav {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .nav a {
+            color: var(--muted);
+            text-decoration: none;
+            padding: 0.4rem 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.85rem;
+            border: 1px solid var(--border);
+        }
+        .nav a:hover { color: var(--text); background: var(--surface); }
+        .nav a.active {
+            color: var(--text);
+            background: var(--accent);
+            border-color: var(--accent);
+            font-weight: 600;
+        }
+
+        /* Filters */
+        .filters {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        select, input[type="date"], button {
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 0.375rem;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        select:focus, input:focus, button:focus { outline: 2px solid var(--accent); }
+        button { background: var(--accent); border-color: var(--accent); font-weight: 600; }
+        button:hover { opacity: 0.9; }
+        .btn-clear { background: transparent; border-color: var(--border); color: var(--muted); }
+
+        /* Table */
+        .table-wrap { overflow-x: auto; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        th {
+            text-align: left;
+            padding: 0.6rem 0.75rem;
+            background: var(--surface);
+            border-bottom: 2px solid var(--border);
+            color: var(--muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.05em;
+            white-space: nowrap;
+        }
+        th.right { text-align: right; }
+        th.center { text-align: center; }
+        td {
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        td.right { text-align: right; }
+        td.center { text-align: center; }
+        tr:hover td { background: rgba(59, 130, 246, 0.05); }
+
+        /* RAG badge */
+        .rag-badge {
+            display: inline-block;
+            padding: 0.15rem 0.6rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        .rag-green { background: var(--green); }
+        .rag-amber { background: var(--yellow); color: #1e293b; }
+        .rag-red { background: var(--red); }
+
+        .empty-state {
+            text-align: center;
+            color: var(--muted);
+            padding: 3rem;
+            font-size: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Flow Summary</h1>
+    <p class="subtitle">Per-flow aggregation with success rates</p>
+
+    <nav class="nav">
+        <a href="/">Runs</a>
+        <a href="/summary" class="active">Summary</a>
+    </nav>
+
+    <form class="filters" method="get" action="/summary">
+        <select name="flow">
+            <option value="">All Flows</option>
+            {% for f in flows %}
+            <option value="{{ f }}" {{ "selected" if f == flow_filter else "" }}>{{ f }}</option>
+            {% endfor %}
+        </select>
+        <input type="date" name="since" value="{{ since_filter[:10] if since_filter else '' }}" placeholder="Since date">
+        <button type="submit">Filter</button>
+        <a href="/summary" class="btn-clear" style="text-decoration:none">Clear</a>
+    </form>
+
+    {% if rows %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Flow Name</th>
+                    <th class="right">Runs</th>
+                    <th class="right">Completed</th>
+                    <th class="right">Failed</th>
+                    <th class="right">Crashed</th>
+                    <th class="right">Cancelled</th>
+                    <th class="right">In-Flight</th>
+                    <th class="center">Success Rate</th>
+                    <th class="right">Avg (s)</th>
+                    <th class="right">Min (s)</th>
+                    <th class="right">Max (s)</th>
+                    <th>Last Run</th>
+                    <th class="right">24h</th>
+                    <th class="right">7d</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td><strong>{{ row.flow_name or "(unknown)" }}</strong></td>
+                    <td class="right">{{ row.total_runs }}</td>
+                    <td class="right">{{ row.completed }}</td>
+                    <td class="right">{{ row.failed }}</td>
+                    <td class="right">{{ row.crashed }}</td>
+                    <td class="right">{{ row.cancelled }}</td>
+                    <td class="right">{{ row.in_flight }}</td>
+                    <td class="center">
+                        {% if row.success_rate >= 95.0 %}
+                        <span class="rag-badge rag-green">{{ "%.1f"|format(row.success_rate) }}%</span>
+                        {% elif row.success_rate >= 80.0 %}
+                        <span class="rag-badge rag-amber">{{ "%.1f"|format(row.success_rate) }}%</span>
+                        {% else %}
+                        <span class="rag-badge rag-red">{{ "%.1f"|format(row.success_rate) }}%</span>
+                        {% endif %}
+                    </td>
+                    <td class="right">{{ row.avg_duration_s if row.avg_duration_s is not none else "" }}</td>
+                    <td class="right">{{ row.min_duration_s if row.min_duration_s is not none else "" }}</td>
+                    <td class="right">{{ row.max_duration_s if row.max_duration_s is not none else "" }}</td>
+                    <td>{{ (row.last_run or "")[:19] }}</td>
+                    <td class="right">{{ row.runs_24h }}</td>
+                    <td class="right">{{ row.runs_7d }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No flow runs found.</div>
+    {% endif %}
+</body>
+</html>

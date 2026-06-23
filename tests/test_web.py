@@ -130,3 +130,62 @@ class TestFlowFilter:
             resp = await ac.get("/", params={"flow": "nonexistent"})
         assert resp.status_code == 200
         assert "No flow runs found" in resp.text
+
+
+class TestSummaryPage:
+    @pytest.mark.asyncio
+    async def test_summary_returns_html(self, seeded_app):
+        transport = ASGITransport(app=seeded_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            resp = await ac.get("/summary")
+        assert resp.status_code == 200
+        assert "text/html" in resp.headers["content-type"]
+        assert "Flow Summary" in resp.text
+
+    @pytest.mark.asyncio
+    async def test_summary_shows_flow_name(self, seeded_app):
+        transport = ASGITransport(app=seeded_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            resp = await ac.get("/summary")
+        assert "etl-pipeline" in resp.text
+
+    @pytest.mark.asyncio
+    async def test_summary_shows_rag_badge(self, seeded_app):
+        transport = ASGITransport(app=seeded_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            resp = await ac.get("/summary")
+        assert "rag-badge" in resp.text
+
+    @pytest.mark.asyncio
+    async def test_summary_empty_db(self, empty_app):
+        transport = ASGITransport(app=empty_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            resp = await ac.get("/summary")
+        assert resp.status_code == 200
+        assert "No flow runs found" in resp.text
+
+    @pytest.mark.asyncio
+    async def test_summary_filter_by_flow(self, seeded_app):
+        transport = ASGITransport(app=seeded_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            resp = await ac.get("/summary", params={"flow": "nonexistent"})
+        assert resp.status_code == 200
+        assert "No flow runs found" in resp.text
+
+    @pytest.mark.asyncio
+    async def test_summary_navigation_link(self, seeded_app):
+        transport = ASGITransport(app=seeded_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            resp = await ac.get("/")
+        assert 'href="/summary"' in resp.text
+
+
+class TestIndexNavigation:
+    @pytest.mark.asyncio
+    async def test_index_has_nav(self, seeded_app):
+        transport = ASGITransport(app=seeded_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            resp = await ac.get("/")
+        assert 'class="nav"' in resp.text
+        assert 'href="/"' in resp.text
+        assert 'href="/summary"' in resp.text

@@ -138,6 +138,72 @@ class TestMainList:
         main(["--db", db_path, "list"])
 
 
+class TestParserSummary:
+    def test_summary_defaults(self):
+        parser = _build_parser()
+        args = parser.parse_args(["summary"])
+        assert args.command == "summary"
+        assert args.since is None
+        assert args.flow is None
+
+    def test_summary_with_options(self):
+        parser = _build_parser()
+        args = parser.parse_args(["summary", "--since", "2026-01-01", "--flow", "etl"])
+        assert args.since == "2026-01-01"
+        assert args.flow == "etl"
+
+
+class TestMainSummary:
+    def test_summary_displays_table(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("PREFECT_API_URL", "https://api.test.com")
+        monkeypatch.setenv("PREFECT_API_KEY", "pnu_test")
+
+        from prefect_history.db import FlowRunDB
+        from tests.conftest import make_flow_run_row
+
+        db_path = str(tmp_path / "cli_summary.db")
+        db = FlowRunDB(db_path)
+        db.upsert_flow_runs(
+            [
+                make_flow_run_row(
+                    run_id="sm1", flow_name="etl", state_type="COMPLETED"
+                ),
+                make_flow_run_row(run_id="sm2", flow_name="etl", state_type="FAILED"),
+            ]
+        )
+
+        main(["--db", db_path, "summary"])
+
+    def test_summary_empty_db(self, monkeypatch, tmp_path, capsys):
+        monkeypatch.setenv("PREFECT_API_URL", "https://api.test.com")
+        monkeypatch.setenv("PREFECT_API_KEY", "pnu_test")
+
+        db_path = str(tmp_path / "empty.db")
+        main(["--db", db_path, "summary"])
+        output = capsys.readouterr().out
+        assert "No flow runs found" in output
+
+    def test_summary_with_flow_filter(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("PREFECT_API_URL", "https://api.test.com")
+        monkeypatch.setenv("PREFECT_API_KEY", "pnu_test")
+
+        from prefect_history.db import FlowRunDB
+        from tests.conftest import make_flow_run_row
+
+        db_path = str(tmp_path / "cli_summary_filter.db")
+        db = FlowRunDB(db_path)
+        db.upsert_flow_runs(
+            [
+                make_flow_run_row(run_id="f1", flow_name="etl", state_type="COMPLETED"),
+                make_flow_run_row(
+                    run_id="f2", flow_name="other", state_type="COMPLETED"
+                ),
+            ]
+        )
+
+        main(["--db", db_path, "summary", "--flow", "etl"])
+
+
 class TestMainNoCommand:
     def test_no_command_exits(self):
         with pytest.raises(SystemExit) as exc_info:
