@@ -196,6 +196,13 @@ class FlowRunDB:
         with self._connect() as conn:
             return [dict(row) for row in conn.execute(sql, params)]
 
+    def get_flow_run_by_id(self, run_id: str) -> dict | None:
+        """Return a single flow run by its ID, or ``None`` if not found."""
+        sql = "SELECT * FROM flow_runs WHERE id = ?"
+        with self._connect() as conn:
+            row = conn.execute(sql, (run_id,)).fetchone()
+            return dict(row) if row else None
+
     def count_flow_runs(self, *, state_type: str | None = None) -> int:
         """Count cached flow runs, optionally filtered by state_type."""
         if state_type:

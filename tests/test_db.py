@@ -193,6 +193,37 @@ class TestSyncLog:
         assert log[0]["id"] > log[1]["id"] > log[2]["id"]
 
 
+class TestGetFlowRunById:
+    def test_found(self, tmp_db):
+        tmp_db.upsert_flow_runs([make_flow_run_row(run_id="lookup-1", flow_name="etl")])
+        row = tmp_db.get_flow_run_by_id("lookup-1")
+        assert row is not None
+        assert row["id"] == "lookup-1"
+        assert row["flow_name"] == "etl"
+
+    def test_not_found(self, tmp_db):
+        assert tmp_db.get_flow_run_by_id("nonexistent") is None
+
+    def test_returns_all_fields(self, tmp_db):
+        tmp_db.upsert_flow_runs(
+            [
+                make_flow_run_row(
+                    run_id="detail-1",
+                    flow_name="etl",
+                    deployment_name="daily-etl",
+                    entrypoint="flows/etl.py:run",
+                    work_pool_type="kubernetes",
+                    parameters='{"batch": 100}',
+                )
+            ]
+        )
+        row = tmp_db.get_flow_run_by_id("detail-1")
+        assert row["deployment_name"] == "daily-etl"
+        assert row["entrypoint"] == "flows/etl.py:run"
+        assert row["work_pool_type"] == "kubernetes"
+        assert row["parameters"] == '{"batch": 100}'
+
+
 class TestGetFlowSummary:
     def test_empty_db(self, tmp_db):
         assert tmp_db.get_flow_summary() == []

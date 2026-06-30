@@ -104,6 +104,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Filter by flow name.",
     )
 
+    # -- show -------------------------------------------------------
+    sh = sub.add_parser(
+        "show",
+        help="Show detailed info for a specific flow run by ID.",
+    )
+    sh.add_argument(
+        "run_id",
+        help="The flow run ID to look up.",
+    )
+
     # -- summary ----------------------------------------------------
     sm = sub.add_parser(
         "summary",
@@ -224,6 +234,68 @@ def _cmd_list(
         console.print(f"  [dim]Next page: --offset {offset + limit}[/dim]")
 
 
+def _cmd_show(settings_kwargs: dict, *, run_id: str) -> None:
+    settings = load_settings(**settings_kwargs)
+    db = FlowRunDB(settings.db_path)
+
+    row = db.get_flow_run_by_id(run_id)
+    if not row:
+        print(f"Flow run not found: {run_id}")
+        return
+
+    console = Console()
+    table = Table(
+        title=f"Flow Run: {row.get('name', run_id)}",
+        show_header=False,
+        show_lines=True,
+        box=None,
+    )
+    table.add_column("Field", style="bold", width=22)
+    table.add_column("Value")
+
+    st = row.get("state_type") or ""
+    colour = _STATE_COLOURS.get(st, "white")
+
+    fields = [
+        ("ID", row.get("id", "")),
+        ("Name", row.get("name", "")),
+        ("Flow", row.get("flow_name", "")),
+        ("Flow ID", row.get("flow_id", "")),
+        ("State", f"[{colour}]{row.get('state_name', st)}[/{colour}]"),
+        ("State Message", row.get("state_message") or ""),
+        ("Deployment", row.get("deployment_name") or ""),
+        ("Deployment ID", row.get("deployment_id") or ""),
+        ("Entrypoint", row.get("entrypoint") or ""),
+        ("Work Pool", row.get("work_pool_name") or ""),
+        ("Pool Type", row.get("work_pool_type") or ""),
+        ("Work Queue", row.get("work_queue_name") or ""),
+        ("Infra PID", row.get("infrastructure_pid") or ""),
+        ("Created By", row.get("created_by_display") or ""),
+        ("Created By Type", row.get("created_by_type") or ""),
+        ("Start Time", (row.get("start_time") or "")[:19]),
+        ("End Time", (row.get("end_time") or "")[:19]),
+        (
+            "Duration (s)",
+            (
+                f"{row['total_run_time_s']:.1f}"
+                if row.get("total_run_time_s") is not None
+                else ""
+            ),
+        ),
+        ("Run Count", str(row.get("run_count", ""))),
+        ("Auto Scheduled", "Yes" if row.get("auto_scheduled") else "No"),
+        ("Tags", row.get("tags", "[]")),
+        ("Parameters", row.get("parameters", "{}")),
+        ("Created", (row.get("created") or "")[:19]),
+        ("Updated", (row.get("updated") or "")[:19]),
+    ]
+
+    for label, value in fields:
+        table.add_row(label, str(value))
+
+    console.print(table)
+
+
 def _rag_colour(rate: float) -> str:
     """Return a rich colour string based on success rate (RAG)."""
     if rate >= 95.0:
@@ -327,6 +399,9 @@ def main(argv: list[str] | None = None) -> None:
             state=args.state,
             flow=args.flow,
         )
+
+    elif args.command == "show":
+        _cmd_show(settings_kwargs, run_id=args.run_id)
 
     elif args.command == "summary":
         _cmd_summary(settings_kwargs, since=args.since, flow=args.flow)

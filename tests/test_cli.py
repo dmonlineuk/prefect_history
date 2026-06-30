@@ -204,6 +204,47 @@ class TestMainSummary:
         main(["--db", db_path, "summary", "--flow", "etl"])
 
 
+class TestParserShow:
+    def test_show_parses_run_id(self):
+        parser = _build_parser()
+        args = parser.parse_args(["show", "abc-123"])
+        assert args.command == "show"
+        assert args.run_id == "abc-123"
+
+
+class TestMainShow:
+    def test_show_displays_detail(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("PREFECT_API_URL", "https://api.test.com")
+        monkeypatch.setenv("PREFECT_API_KEY", "pnu_test")
+
+        from prefect_history.db import FlowRunDB
+        from tests.conftest import make_flow_run_row
+
+        db_path = str(tmp_path / "cli_show.db")
+        db = FlowRunDB(db_path)
+        db.upsert_flow_runs(
+            [
+                make_flow_run_row(
+                    run_id="show-1",
+                    flow_name="etl",
+                    deployment_name="daily-etl",
+                    entrypoint="flows/etl.py:run",
+                )
+            ]
+        )
+
+        main(["--db", db_path, "show", "show-1"])
+
+    def test_show_not_found(self, monkeypatch, tmp_path, capsys):
+        monkeypatch.setenv("PREFECT_API_URL", "https://api.test.com")
+        monkeypatch.setenv("PREFECT_API_KEY", "pnu_test")
+
+        db_path = str(tmp_path / "cli_show_empty.db")
+        main(["--db", db_path, "show", "nonexistent"])
+        output = capsys.readouterr().out
+        assert "Flow run not found" in output
+
+
 class TestMainNoCommand:
     def test_no_command_exits(self):
         with pytest.raises(SystemExit) as exc_info:
