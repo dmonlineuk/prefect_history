@@ -16,7 +16,7 @@
         <tbody>
             {% for row in rows %}
             <tr>
-                <td><strong>{{ row.get("name", "") }}</strong></td>
+                <td><a href="/run/{{ row.get('id', '') }}" style="color:var(--accent);text-decoration:none;font-weight:bold">{{ row.get("name", "") }}</a></td>
                 <td>{{ row.get("flow_name", "") }}</td>
                 <td>{{ row.get("deployment_name", "") or "" }}</td>
                 <td><code>{{ row.get("entrypoint", "") or "" }}</code></td>

@@ -193,6 +193,43 @@ class TestSummaryPage:
         assert 'href="/summary"' in resp.text
 
 
+class TestRunDetail:
+    @pytest.mark.asyncio
+    async def test_detail_returns_html(self, seeded_app):
+        transport = ASGITransport(app=seeded_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            resp = await ac.get("/run/web-0")
+        assert resp.status_code == 200
+        assert "text/html" in resp.headers["content-type"]
+        assert "Flow Run Detail" in resp.text
+
+    @pytest.mark.asyncio
+    async def test_detail_shows_fields(self, seeded_app):
+        transport = ASGITransport(app=seeded_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            resp = await ac.get("/run/web-0")
+        assert "etl-pipeline" in resp.text
+        assert "daily-etl" in resp.text
+        assert "flows/etl.py:run" in resp.text
+        assert "kubernetes" in resp.text
+        assert "batch_size" in resp.text
+
+    @pytest.mark.asyncio
+    async def test_detail_not_found(self, seeded_app):
+        transport = ASGITransport(app=seeded_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            resp = await ac.get("/run/nonexistent-id")
+        assert resp.status_code == 200
+        assert "not found" in resp.text.lower()
+
+    @pytest.mark.asyncio
+    async def test_runs_table_links_to_detail(self, seeded_app):
+        transport = ASGITransport(app=seeded_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            resp = await ac.get("/")
+        assert "/run/web-" in resp.text
+
+
 class TestIndexNavigation:
     @pytest.mark.asyncio
     async def test_index_has_nav(self, seeded_app):

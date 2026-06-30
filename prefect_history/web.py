@@ -139,6 +139,24 @@ def create_app(settings_kwargs: dict[str, Any] | None = None) -> FastAPI:
             },
         )
 
+    @app.get("/run/{run_id}", response_class=HTMLResponse)
+    async def run_detail(
+        request: Request,
+        run_id: str,
+    ) -> HTMLResponse:
+        db = _get_db(app)
+        row = db.get_flow_run_by_id(run_id)
+
+        return templates.TemplateResponse(
+            request,
+            "run_detail.html",
+            {
+                "row": row,
+                "run_id": run_id,
+                "state_colours": STATE_COLOURS,
+            },
+        )
+
     @app.get("/rows", response_class=HTMLResponse)
     async def rows_fragment(
         request: Request,
