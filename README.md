@@ -60,6 +60,9 @@ prefect-history list -n 50             # show 50 rows
 prefect-history list --state FAILED    # filter by state
 prefect-history list --flow etl-pipeline   # filter by flow name
 prefect-history list --offset 20       # pagination (skip first 20)
+
+# Show a specific flow run by ID
+prefect-history show xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
 ### Web Dashboard
